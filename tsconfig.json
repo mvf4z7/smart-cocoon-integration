@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "esModuleInterop": true,
+    "noImplicitAny": true,
+    "outDir": "build",
+    "strict": true
+  },
+  "include": ["src/**/*"]
+}
