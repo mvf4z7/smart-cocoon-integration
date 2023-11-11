@@ -1,14 +1,12 @@
-// import { JWT } from "google-auth-library";
-
-import dotenv from "dotenv";
-import z from "zod";
+import * as dotenv from "dotenv";
+import * as z from "zod";
 import { NestClient } from "./nest-client";
 import { SmartCocoonClient } from "./smart-cocoon-client";
 
 const NEST_DEVICE_ID = "6416660000E6DE0C";
 const PROJECT_ID = "a82a518f-da26-474b-90b9-6ba4a8877865";
 
-async function main() {
+export async function handler(event: unknown, context: unknown) {
   dotenv.config();
   const config = parseConfig(process.env);
 
@@ -35,24 +33,32 @@ async function main() {
   for (const fan of fans) {
     const hvacStatus =
       thermostat.traits["sdm.devices.traits.ThermostatHvac"].status;
-    const fanStatus = thermostat.traits["sdm.devices.traits.Fan"].timerMode;
+    const hvacFanStatus = thermostat.traits["sdm.devices.traits.Fan"].timerMode;
 
     const heatingOrCooling =
       hvacStatus === "COOLING" || hvacStatus === "HEATING";
-    const hvacFanRunning = fanStatus === "ON";
+    const hvacFanRunning = hvacFanStatus === "ON";
     const hvacOn = heatingOrCooling || hvacFanRunning;
 
     const fanOn = fan.fan_on;
 
     if (hvacOn && !fanOn) {
       await smartCocoonClient.updateFan(fan.id, { mode: "always_on" });
-    } else if (!hvacOn && fanOn && fan.mode !== "eco") {
-      await smartCocoonClient.updateFan(fan.id, { mode: "eco" });
+      console.log(
+        `Fan ${fan.id} turned on: HVAC Status=${hvacStatus} | HVAC Fan Status=${hvacFanStatus}`
+      );
+    } else if (!hvacOn && fanOn) {
+      await smartCocoonClient.updateFan(fan.id, { mode: "always_off" });
+      console.log(
+        `Fan ${fan.id} turned off: HVAC Status=${hvacStatus} | HVAC Fan Status=${hvacFanStatus}`
+      );
+    } else {
+      console.log(
+        `No changes needed for fan ${fan.id}: Smart Cocoon Status=${fanOn} | HVAC Status=${hvacStatus} | HVAC Fan Status=${hvacFanStatus}`
+      );
     }
   }
 }
-
-main().catch(console.error);
 
 /**
  * authorization link
@@ -73,7 +79,7 @@ interface Config {
   };
 }
 
-function parseConfig(environemnt: NodeJS.Process["env"]): Config {
+function parseConfig(environment: NodeJS.Process["env"]): Config {
   const environmentSchema = z.object({
     GOOGLE_DEVICE_ACCESS_PROJECT_ID: z.string(),
     GOOGLE_DEVICE_ID: z.string(),
